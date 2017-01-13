@@ -1,0 +1,19 @@
+{
+    "name": "wi-core-atom",
+    "version": "0.0.1",
+    "description": "Atom packages and themes compatibility module",
+    "author": "André Ferreira <andrehrf@gmail.com>",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/jsrun/wi.core.atom"
+    },
+    "bugs": {
+        "url": "https://github.com/jsrun/wi.core.atom/issues"
+    },
+    "homepage": "https://github.com/jsrun/wi.core.atom",
+    "dependencies": {
+        "cson": "^4.0.0",
+        "less-css-stream": "^1.0.0"
+    }
+}
