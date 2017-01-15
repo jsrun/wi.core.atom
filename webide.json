@@ -1,5 +1,8 @@
 {
     "name": "wi.core.atom",
-    "version": "0.0.1",
-    "author": "André Ferreira <andrehrf@gmail.com>"
+    "version": "0.0.2",
+    "author": "André Ferreira <andrehrf@gmail.com>",
+    "dependencies": {
+        "atom/atom": "1.14.0"
+    }
 }
