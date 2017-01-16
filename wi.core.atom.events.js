@@ -112,7 +112,12 @@ var atom = {
     initialize: function(){
         for(var key in atom.packages){
             var package = atom.packages[key];
-            var arguments = /^function .*?\((.*?)\)|.*?/img.exec(package.toString())[1].split(",");
+            var arguments = /^function .*?\((.*?)\)|.*?/img.exec(package.toString());
+                        
+            if(arguments.length > 1)
+                if(arguments[1])
+                    arguments[1].split(",");
+                        
             var argsv = [];
 
             for(var key in arguments){
@@ -120,19 +125,20 @@ var atom = {
                     argsv.push(atom[trim(arguments[key])]);
                     package.prototype[trim(arguments[key])] = atom[trim(arguments[key])];
                 }
-                else{
-                    argsv.push(null);
-                    package.prototype[trim(arguments[key])] = null;
-                }
             }
 
-            if(typeof package.prototype.constructor == "function"){
-                package.prototype.constructor.apply(package, argsv);
-                package.prototype.constructor.apply(package.prototype, argsv);
+            if(package.prototype){
+                if(typeof package.prototype.constructor == "function"){
+                    package.prototype.constructor.apply(package, argsv);
+                    package.prototype.constructor.apply(package.prototype, argsv);
+                }
+
+                if(typeof package.prototype.start == "function")
+                    package.prototype.start();
+
+                if(typeof package.prototype.activate == "function")
+                    package.prototype.activate();
             }
-            
-            if(typeof package.prototype.start == "function")
-                package.prototype.start();
         }
     },
     

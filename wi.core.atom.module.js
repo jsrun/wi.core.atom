@@ -21,7 +21,8 @@ let SystemException = require("../wi.core.exception.js"),
     mkdirp = require("mkdirp"),
     lessCssStream = require('less-css-stream'),
     babel = require("babel-core"),
-    serialize = require('node-serialize');
+    serialize = require('node-serialize'),
+    decaffeinate = require('decaffeinate');
 
 module.exports = {
     /**
@@ -101,6 +102,7 @@ module.exports = {
             console.warn(packageName + ": The package does not have the package.json file");
         }
         
+        //Loading dependencies
         if(typeof packageJSON.dependencies == "object"){
             for(let keyDependencies in packageJSON.dependencies){
                 console.log("Load dependencies: ",keyDependencies);
@@ -114,9 +116,13 @@ module.exports = {
                 catch(e){
                     console.warn(packageName + ": The package does not have the package.json file");
                 }
-            }
+            }            
         }
-                
+        
+        //Loading configuration by configSchema
+        if(typeof packageJSON.configSchema == "object")
+            __this.settings.addAtomConfigSchema(packageJSON.configSchema, packageJSON.name, "", packageJSON.name);
+                        
         try{
             var config = CSON.parseCSONFile(dirname + "/config.cson");
         }
@@ -145,98 +151,134 @@ module.exports = {
         mkdirp(dirname + "/.webide/lib");
         
         //Build CSS
-        if(fs.statSync(dirname + "/styles").isDirectory()){
-            glob(dirname + "/styles/*.css", {realpath: true}, function(err, stylesFiles){
-                stylesFiles.forEach((filename, index) => {
-                    __this.insertCss(dirname + "/.webide/styles/" + path.basename(filename));
-                    
-                    if(__this.build)
-                        console.log("Build CSS: ", dirname + "/.webide/styles/" + path.basename(filename));
-                });
+        glob(dirname + "/styles/*.css", {realpath: true}, function(err, stylesFiles){
+            stylesFiles.forEach((filename, index) => {
+                __this.insertCss(dirname + "/.webide/styles/" + path.basename(filename));
+
+                if(__this.build)
+                    console.log("Build CSS: ", dirname + "/.webide/styles/" + path.basename(filename));
             });
-        }
+        });
         
         //Build LESS
-        if(fs.statSync(dirname + "/styles").isDirectory()){
-            glob(dirname + "/styles/*.less", {realpath: true}, function(err, stylesFiles){
-                stylesFiles.forEach((filename, index) => {
-                    if(__this.build)
-                        console.log("Convert LESS: ", filename);
-                    
-                    fs.createReadStream(filename).pipe(lessCssStream(filename, {compress: true, paths : [__dirname + '/atom/static', __dirname + '/atom/static/variables']})).pipe(fs.createWriteStream(dirname + "/.webide/styles/" + path.basename(filename, ".less") + ".css"));
-                    __this.insertCss(dirname + "/.webide/styles/" + path.basename(filename, ".less") + ".css");
-                    
-                    if(__this.build)
-                        console.log("Build CSS: ", dirname + "/.webide/styles/" + path.basename(filename, ".less") + ".css");
-                });
+        glob(dirname + "/styles/*.less", {realpath: true}, function(err, stylesFiles){
+            stylesFiles.forEach((filename, index) => {
+                if(__this.build)
+                    console.log("Convert LESS: ", filename);
+
+                fs.createReadStream(filename).pipe(lessCssStream(filename, {compress: true, paths : [__dirname + '/atom/static', __dirname + '/atom/static/variables']})).pipe(fs.createWriteStream(dirname + "/.webide/styles/" + path.basename(filename, ".less") + ".css"));
+                __this.insertCss(dirname + "/.webide/styles/" + path.basename(filename, ".less") + ".css");
+
+                if(__this.build)
+                    console.log("Build CSS: ", dirname + "/.webide/styles/" + path.basename(filename, ".less") + ".css");
             });
-        }
+        });
                 
-        //Build Javascript
-        if(fs.statSync(dirname + "/lib").isDirectory()){
-            glob(dirname + "/lib/*.js", {realpath: true}, function(err, javascriptFiles){
-                javascriptFiles.forEach((filename, index) => {
-                    if(__this.build)
-                        console.log("Convert Babel: ", filename);
-                    
-                    babel.transformFile(filename, {filename: filename, presets: ["babel-preset-es2015"].map(require.resolve)}, function(err, result){
-                        if(err) console.log(err);
-                        else{ 
-                            let out = dirname + "/.webide/lib/" + path.basename(filename);
-                            let namespace = path.basename(filename, ".js");
-                            result.code = "if(!exports)var exports = {};\n\n" + result.code;         
-                            result.code = "if(!require)var require = function(n){ return window[n]; };\n\n" + result.code;     
-                            result.code = result.code.replace(/require\([\"']atom[\"']\)/img, "require(\"../../../../.core/wi.core.atom/atom-compatibility.js\");");
-                            result.code = result.code.replace(/_classCallCheck\(.*?\);/img, "");//Fix Babel
-                            result.code = result.code.replace(/function  } }/i, "");//Fix Babel
-                            result.code = result.code.replace(/exports.default = (.*?);/i, function(e, r){//Fix Babel
-                                return `if(typeof atom == "object") atom.addPackages('${namespace}', ${r}); else exports.default = ${r};`;
-                            });
-                                                                                   
-                            if(!/\-view\.js/.test(out)){
-                                fs.writeFileSync(out, result.code);
-                                let module = require(dirname + "/.webide/lib/" + path.basename(filename));
-                                
-                                //Loading settings
-                                if(module.default){
-                                    if(module.default.config){
-                                        if(typeof module.default.config == "object"){
-                                            for(let key in module.default.config){
-                                                switch(module.default.config[key].type){
-                                                    case "string": var type = "text"; break;
-                                                    case "integer": var type = "number"; break;
-                                                    case "boolean": var type = "boolean"; break;
-                                                    default: var type = "text"; break;
-                                                }    
-                                                
-                                                try{
-                                                    __this.settings.addSettingItem("Atom", path.basename(filename, ".js"), namespace + "." + key, module.default.config[key].title, type, module.default.config[key].default, null, "webide.atom.setAtomConfig");
-                                                }
-                                                catch(e) { if(__this.build) console.log(e.message);  }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                            else{   
-                                result.code = result.code.replace(/new _atom.*?/i, function(e, r){//Fix Babel
-                                    return `(function(){ return (typeof atom == "object") ? atom : _atom; })()`;
-                                });
-                                
-                                fs.writeFileSync(out, result.code);                            
-                                __this.insertJs(out);
-                            }
-                        }
-                    });
-                    
-                    if(__this.build)
-                        console.log("Build Javascript: ", dirname + "/.webide/lib/" + path.basename(filename));
+        //Build Javascript        
+        glob(dirname + "/lib/**/*.js", {realpath: true}, function(err, javascriptFiles){
+            javascriptFiles.forEach((filename, index) => {
+                if(__this.build)
+                    console.log("Convert Babel: ", filename);
+
+                babel.transformFile(filename, {filename: filename, presets: ["babel-preset-es2015"].map(require.resolve)}, function(err, result){
+                    if(err) console.log(err);
+                    else{ 
+                        let out = dirname + "/.webide/lib/" + path.basename(filename);
+                        let namespace = path.basename(filename, ".js");
+                        _this.fixJavascript(__this, dirname, namespace, result, filename, out, ".js", packageJSON.name);
+                    }
                 });
+
+                if(__this.build)
+                    console.log("Build Javascript: ", dirname + "/.webide/lib/" + path.basename(filename));
             });
-        }
+        });
+
+        //Build Coffee     
+        glob(dirname + "/lib/**/*.coffee", {realpath: true}, function(err, javascriptFiles){
+            javascriptFiles.forEach((filename, index) => {
+                if(__this.build)
+                    console.log("Convert Coffee: ", filename);
+                
+                let out = dirname + "/.webide/lib/" + path.basename(filename, ".coffee") + ".js";
+                let namespace = path.basename(filename, ".coffee");
+                                
+                var result = babel.transform(decaffeinate.convert(fs.readFileSync(filename).toString(), {}).code, {presets: ["babel-preset-es2015"].map(require.resolve)});
+                fs.writeFileSync(out, result.code);
+                
+                _this.fixJavascript(__this, dirname, namespace, result, filename, out, ".coffee", packageJSON.name);                
+                
+                if(__this.build)
+                    console.log("Build Javascript: ", dirname + "/.webide/lib/" + path.basename(filename, ".coffee") + ".js");
+            });
+        });
+        
         
         if(typeof cb == "function")
             setTimeout(() => { cb(); }, 5000);
+    },
+    
+    /**
+     * Function to fix javascript to WebIDE
+     * 
+     * @param object __this
+     * @param string dirname
+     * @param string namespace
+     * @param object result
+     * @param string filename
+     * @param string out
+     * @param string ext
+     */
+    fixJavascript: function(__this, dirname, namespace, result, filename, out, ext, packageName){
+        result.code = "if(!exports)var exports = {};\n\n" + result.code;         
+        result.code = "if(!require)var require = function(n){ return window[n]; };\n\n" + result.code;     
+        result.code = result.code.replace(/require\([\"']atom[\"']\)/img, "require(\"../../../../.core/wi.core.atom/atom-compatibility.js\")");
+        result.code = result.code.replace(/_classCallCheck\(.*?\);/img, "");//Fix Babel
+        result.code = result.code.replace(/function  } }/i, "");//Fix Babel
+                
+        result.code = result.code.replace(/new _atom\..*?/i, function(e, r){//Fix Babel
+            return `(function(){ return (typeof atom == "object") ? atom : new _atom; })().`;
+        });
+        
+        if(/exports\.default[\s]=.*?/i.test(result.code)){
+            var namespaceObj = (packageName + namespace).replace(/-/img, "").replace(/_/img, "") + "Obj";
+            result.code = result.code.replace(/exports\.default/img, namespaceObj);
+            result.code += `\n\nif(typeof atom == "object") atom.addPackages('${packageName}-${namespace}', ${namespaceObj}); else exports.default = ${namespaceObj};`;
+        }
+        
+        result.code = result.code.replace(/require\((.*?)\)/img, function(e, r){//Fix Babel
+            r = r.replace(/['\"]/img, "");//Remove ' and ";
+                  
+            if(/\+/img.test(r)){
+                console.log((packageName + path.basename(r, path.extname(r))));
+            }
+            else if(r.substr(0,2) == "./"){
+                var packageVirtual = (packageName).replace(/-/img, "").replace(/_/img, "") + "-" + (path.basename(r, path.extname(r))).replace(/-/img, "").replace(/_/img, "");
+            }
+            
+            if(!packageVirtual)
+                packageVirtual = r;
+            
+            return `require((function(){ return (typeof atom == "object") ? "${packageVirtual}" : "${r}"; })())`;
+        });
+
+        fs.writeFileSync(out, result.code);
+        
+        try{
+            (function(window){
+                let module = require(dirname + "/.webide/lib/" + path.basename(filename, ext));
+
+                //Loading settings
+                if(module.default){
+                    if(module.default.config)
+                        if(typeof module.default.config == "object")
+                            __this.settings.addAtomConfigSchema(module.default.config, filename, ext, namespace);
+                }
+            })({});
+        }
+        catch(e){ console.log(e.message, dirname + "/.webide/lib/" + path.basename(filename, ext)); }
+
+        __this.insertJs(out);
     },
     
     parseTheme: function(){
