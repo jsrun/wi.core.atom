@@ -224,7 +224,7 @@ module.exports = {
     fixJavascript: function(__this, dirname, namespace, result, filename, out, ext, packageName){
         result.code = "if(!exports)var exports = {};\n\n" + result.code;         
         result.code = "if(!require)var require = function(n){ return window[n]; };\n\n" + result.code;     
-        result.code = result.code.replace(/require\([\"']atom[\"']\)/img, "require(\"../../../../.core/wi.core.atom/atom-compatibility.js\")");
+        result.code = result.code.replace(/require\([\"']atom[\"']\)/img, "require(\"../../../../.core/wi.core.atom/compatibility.js\")");
         result.code = result.code.replace(/_classCallCheck\(.*?\);/img, "");//Fix Babel
         result.code = result.code.replace(/function  } }/i, "");//Fix Babel
                 
