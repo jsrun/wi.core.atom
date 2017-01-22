@@ -1,6 +1,6 @@
 {
     "name": "wi-core-atom",
-    "version": "0.1.2",
+    "version": "0.2.1",
     "description": "Atom packages and themes compatibility module",
     "author": "André Ferreira <andrehrf@gmail.com>",
     "license": "MIT",

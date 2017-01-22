@@ -111,33 +111,33 @@ var atom = {
      */
     initialize: function(){
         for(var key in atom.packages){
-            var package = atom.packages[key];
-            var arguments = /^function .*?\((.*?)\)|.*?/img.exec(package.toString());
+            var packageItem = atom.packages[key];
+            var argumentsArr = /^function .*?\((.*?)\)|.*?/img.exec(packageItem.toString());
                         
-            if(arguments.length > 1)
-                if(arguments[1])
-                    arguments[1].split(",");
+            if(argumentsArr.length > 1)
+                if(argumentsArr[1])
+                    argumentsArr[1].split(",");
                         
             var argsv = [];
 
-            for(var key in arguments){
-                if(atom[trim(arguments[key])]){
-                    argsv.push(atom[trim(arguments[key])]);
-                    package.prototype[trim(arguments[key])] = atom[trim(arguments[key])];
+            for(var key in argumentsArr){
+                if(atom[trim(argumentsArr[key])]){
+                    argsv.push(atom[trim(argumentsArr[key])]);
+                    packageItem.prototype[trim(arguments[key])] = atom[trim(argumentsArr[key])];
                 }
             }
 
-            if(package.prototype){
-                if(typeof package.prototype.constructor == "function"){
-                    package.prototype.constructor.apply(package, argsv);
-                    package.prototype.constructor.apply(package.prototype, argsv);
+            if(packageItem.prototype){
+                if(typeof packageItem.prototype.constructor == "function"){
+                    packageItem.prototype.constructor.apply(packageItem, argsv);
+                    packageItem.prototype.constructor.apply(packageItem.prototype, argsv);
                 }
 
-                if(typeof package.prototype.start == "function")
-                    package.prototype.start();
+                if(typeof packageItem.prototype.start == "function")
+                    packageItem.prototype.start();
 
-                if(typeof package.prototype.activate == "function")
-                    package.prototype.activate();
+                if(typeof packageItem.prototype.activate == "function")
+                    packageItem.prototype.activate();
             }
         }
     },
@@ -149,10 +149,10 @@ var atom = {
      */
     update: function(){
         for(var key in atom.packages){
-            var package = atom.packages[key];
+            var packageItem = atom.packages[key];
             
-            if(typeof package.prototype.initialize == "function")
-                package.prototype.initialize();
+            if(typeof packageItem.prototype.initialize == "function")
+                packageItem.prototype.initialize();
         }
     }
 };

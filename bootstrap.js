@@ -24,15 +24,7 @@ let SystemException = require("../wi.core.exception.js"),
     serialize = require('node-serialize'),
     decaffeinate = require('decaffeinate');
 
-module.exports = {
-    /**
-     * List module assets
-     * @type object
-     */
-    assets: {
-        js: [__dirname + "/wi.core.atom.events.js"]
-    },
-    
+module.exports = {    
     /**
      * Function to associate Atom static files
      * 
@@ -40,7 +32,7 @@ module.exports = {
      * @return void
      */
     static: function(app){
-        app.use(require('serve-static')(__dirname + '/atom/static', {index: false, dotfiles: "deny"}));
+        //app.use(require('serve-static')(__dirname + '/atom/static', {index: false, dotfiles: "deny"}));
     },
     
     /**
