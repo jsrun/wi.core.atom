@@ -12,8 +12,7 @@
 
 "use strict";
 
-let SystemException = require("../wi.core.exception.js"),
-    fs = require("fs"),
+let fs = require("fs"),
     path = require("path"),
     glob = require("glob"),
     CSON = require("cson"),
